@@ -6,7 +6,7 @@ import APIService from "./api.service";
 
 const port = 8082;
 const server = http.createServer(express);
-const io = SocketIO(server);
+const io = new SocketIO.Server(server);
 const apiService = new APIService();
 
 enum GameState {
@@ -15,7 +15,10 @@ enum GameState {
 }
 
 io.on("connection", (socket) => {
+  console.log('Socket has connected', socket.id);
+
   socket.on("login", ({ username }) => {
+    console.log(`Login with ${username}`);
     apiService
       .createUser(socket.id, username)
       .then(() => {
@@ -50,14 +53,17 @@ io.on("connection", (socket) => {
 
         /* Check the room with how many socket is connected */
         const maxRoomSize = roomType === "cpu" ? 1 : 2;
-        socket.join(room, () => {
-          if (
-            io.nsps["/"].adapter.rooms[room] &&
-            io.nsps["/"].adapter.rooms[room]?.length === maxRoomSize
-          ) {
-            io.to(room).emit("onReady", { state: true });
-          }
-        });
+        const promise = socket.join(room);
+        if (promise) {
+          promise.then(() => {
+            if (
+              io._nsps["/"].adapter.rooms.has(room) &&
+              io._nsps["/"].adapter.rooms.get(room)?.length === maxRoomSize
+            ) {
+              io.to(room).emit("onReady", { state: true });
+            }
+          });
+        }
       })
       .catch((err) => {
         socket.emit("error", { message: err });
@@ -75,9 +81,9 @@ io.on("connection", (socket) => {
         });
 
         socket.broadcast.emit("activateYourTurn", {
-          user: io.nsps["/"].adapter.rooms[result?.data.room]
+          user: io._nsps["/"].adapter.rooms[result?.data.room]
             ? Object.keys(
-                io.nsps["/"].adapter.rooms[result?.data.room].sockets
+                io._nsps["/"].adapter.rooms[result?.data.room].sockets
               )[0]
             : null,
           state: GameState.PLAY,
@@ -178,6 +184,7 @@ io.on("connection", (socket) => {
 
   /* OnDisconnet clear all login and room data from the connected socket */
   socket.on("disconnect", () => {
+    console.log('Socket disconnects. ID: ', socket.id);
     apiService.getUserDetail(socket.id).then((result) => {
       socket.broadcast.to(result?.data.room).emit("onReady", { state: false });
       apiService.removeUserFromRoom(socket.id).then(() => {
