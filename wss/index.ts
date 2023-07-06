@@ -182,7 +182,7 @@ io.on("connection", (socket: Socket) => {
       }
 
       /* if 1 is reached than emit the GameOver Listener */
-      if (calculationResult(numbers, number) == 1) {
+      if (Math.abs(calculationResult(numbers, number)) == 1) {
         io.to(result?.data.room).emit("gameOver", {
           user: result?.data.name,
           isOver: true,
