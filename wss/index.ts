@@ -1,6 +1,6 @@
 import express from "express";
 import * as http from "http";
-import SocketIO from "socket.io";
+import SocketIO, { Socket } from "socket.io";
 
 import APIService from "./api.service";
 
@@ -14,8 +14,8 @@ enum GameState {
   PLAY = "play",
 }
 
-io.on("connection", (socket) => {
-  console.log('Socket has connected', socket.id);
+io.on("connection", (socket: Socket) => {
+  console.log('Socket has connected with ID:', socket.id);
 
   socket.on("login", ({ username }) => {
     console.log(`Login with ${username}`);
@@ -29,7 +29,8 @@ io.on("connection", (socket) => {
         });
       })
       .catch((err) => {
-        socket.emit("error", { message: err });
+        socket.emit("error", { ...err });
+        console.log(err);
       });
   });
 
@@ -53,20 +54,26 @@ io.on("connection", (socket) => {
 
         /* Check the room with how many socket is connected */
         const maxRoomSize = roomType === "cpu" ? 1 : 2;
+        const emitOnReady = () => {
+          if (
+            io.of("/").adapter.rooms.has(room) &&
+            io.of("/").adapter.rooms.get(room)?.size === maxRoomSize
+          ) {
+            io.to(room).emit("onReady", { state: true });
+          } else {
+            io.to(room).emit("onReady", { state: false });
+          }
+        }
         const promise = socket.join(room);
         if (promise) {
-          promise.then(() => {
-            if (
-              io._nsps["/"].adapter.rooms.has(room) &&
-              io._nsps["/"].adapter.rooms.get(room)?.length === maxRoomSize
-            ) {
-              io.to(room).emit("onReady", { state: true });
-            }
-          });
+          promise.then(emitOnReady);
+        } else {
+          emitOnReady();
         }
       })
       .catch((err) => {
-        socket.emit("error", { message: err });
+        socket.emit("error", { ...err });
+        console.log(err);
       });
   });
 
@@ -80,17 +87,19 @@ io.on("connection", (socket) => {
           isFirst: true,
         });
 
-        socket.broadcast.emit("activateYourTurn", {
-          user: io._nsps["/"].adapter.rooms.get(result?.data.room)
-            ? Object.keys(
-                io._nsps["/"].adapter.rooms.get(result?.data.room).sockets
-              )[0]
-            : null,
+        const usersInRoom = io.of("/").adapter.rooms.get(result?.data.room);
+        socket.to(result?.data.room).emit("activateYourTurn", {
+          user: usersInRoom?.values[0] ?? null,
           state: GameState.PLAY,
+        });
+        socket.emit("activateYourTurn", {
+          user: socket.id,
+          state: GameState.WAIT,
         });
       })
       .catch((err) => {
-        socket.emit("error", { message: err });
+        socket.emit("error", { ...err });
+        console.log(err);
       });
   });
 
@@ -157,10 +166,20 @@ io.on("connection", (socket) => {
           calculationResult(numbers, number) == number ? false : true,
       });
 
-      io.to(result?.data.room).emit("activateYourTurn", {
+      socket.emit("activateYourTurn", {
         user: socket.id,
         state: GameState.WAIT,
       });
+
+      if (result?.data.roomType === "human") {
+        const usersInRoom = io.of("/").adapter.rooms.get(result?.data.room);
+        const opposingUser = usersInRoom ? Array.from(usersInRoom).find(userSocketId => userSocketId !== socket.id) : '';
+
+        socket.to(result?.data.room).emit("activateYourTurn", {
+          user: opposingUser,
+          state: GameState.PLAY,
+        });
+      }
 
       /* if 1 is reached than emit the GameOver Listener */
       if (calculationResult(numbers, number) == 1) {
