@@ -81,9 +81,9 @@ io.on("connection", (socket) => {
         });
 
         socket.broadcast.emit("activateYourTurn", {
-          user: io._nsps["/"].adapter.rooms[result?.data.room]
+          user: io._nsps["/"].adapter.rooms.get(result?.data.room)
             ? Object.keys(
-                io._nsps["/"].adapter.rooms[result?.data.room].sockets
+                io._nsps["/"].adapter.rooms.get(result?.data.room).sockets
               )[0]
             : null,
           state: GameState.PLAY,
