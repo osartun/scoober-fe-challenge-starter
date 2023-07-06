@@ -90,11 +90,11 @@ io.on("connection", (socket: Socket) => {
         const usersInRoom = io.of("/").adapter.rooms.get(result?.data.room);
         socket.to(result?.data.room).emit("activateYourTurn", {
           user: usersInRoom?.values[0] ?? null,
-          state: GameState.PLAY,
+          state: GameState.WAIT,
         });
         socket.emit("activateYourTurn", {
           user: socket.id,
-          state: GameState.WAIT,
+          state: GameState.PLAY,
         });
       })
       .catch((err) => {
@@ -114,6 +114,7 @@ io.on("connection", (socket: Socket) => {
           return a + b;
         });
       };
+      let cpuPlayerTimeout: NodeJS.Timeout | undefined = undefined;
 
       const calculationResult = (number: number[], numberB: number): number => {
         const res = sumValues(number);
@@ -130,7 +131,7 @@ io.on("connection", (socket: Socket) => {
       if (result?.data?.roomType === "cpu") {
         // After clients selection it will wait 2 seconds for the CPU selection
 
-        setTimeout(() => {
+        cpuPlayerTimeout = setTimeout(() => {
           const setOfRandomNumbers = [1, 0, -1];
           const randomCPU =
             setOfRandomNumbers[
@@ -183,12 +184,13 @@ io.on("connection", (socket: Socket) => {
         });
       }
 
-      /* if 1 is reached than emit the GameOver Listener */
+      /* if 1 is reached then emit the GameOver Listener */
       if (Math.abs(calculationResult(numbers, number)) == 1) {
         io.to(result?.data.room).emit("gameOver", {
           user: result?.data.name,
           isOver: true,
         });
+        if (cpuPlayerTimeout) clearTimeout(cpuPlayerTimeout);
       }
     });
   });
