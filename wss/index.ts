@@ -104,8 +104,10 @@ io.on("connection", (socket: Socket) => {
   });
 
   /* Send Calculated number back with Divisible control */
-  socket.on("sendNumber", ({ number, selectedNumber }) => {
+  socket.on("sendNumber", (payload) => {
     apiService.getUserDetail(socket.id).then((result) => {
+      const number = Number(payload.number);
+      const selectedNumber = Number(payload.selectedNumber);
       const numbers = [selectedNumber, number];
       const sumValues = (num: number[]) => {
         return num.reduce((a: number, b: number) => {
