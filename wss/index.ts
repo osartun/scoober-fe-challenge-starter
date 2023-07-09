@@ -15,10 +15,7 @@ enum GameState {
 }
 
 io.on("connection", (socket: Socket) => {
-  console.log('Socket has connected with ID:', socket.id);
-
   socket.on("login", ({ username }) => {
-    console.log(`Login with ${username}`);
     apiService
       .createUser(socket.id, username)
       .then(() => {
@@ -207,7 +204,6 @@ io.on("connection", (socket: Socket) => {
 
   /* OnDisconnet clear all login and room data from the connected socket */
   socket.on("disconnect", () => {
-    console.log('Socket disconnects. ID: ', socket.id);
     apiService.getUserDetail(socket.id).then((result) => {
       socket.broadcast.to(result?.data.room).emit("onReady", { state: false });
       apiService.removeUserFromRoom(socket.id).then(() => {
