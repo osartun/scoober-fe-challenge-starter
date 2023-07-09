@@ -19,12 +19,5 @@
       "type": "human"
     }
   ],
-  "users": [
-    {
-      "id": "8owCagNphwOWxcxcAAAB",
-      "name": "PlayerA",
-      "room": "Room Berlin CPU",
-      "roomType": "cpu"
-    }
-  ]
+  "users": []
 }
